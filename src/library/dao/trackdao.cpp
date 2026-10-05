@@ -6,7 +6,6 @@
 #include <QThread>
 #include <QtDebug>
 
-
 #ifdef __SQLITE3__
 #include <sqlite3.h>
 #endif // __SQLITE3__
@@ -1792,23 +1791,6 @@ void TrackDAO::markTrackLocationsAsVerified(const QStringList& locations) const 
     }
 }
 
-void TrackDAO::markTracksInDirectoriesAsVerified(const QStringList& directories) const {
-    // kLogger.debug()<< "markTracksInDirectoryAsVerified" <<
-    // QThread::currentThread() << m_database.connectionName();
-
-    QSqlQuery query(m_database);
-    query.prepare(
-        QString("UPDATE track_locations "
-                "SET needs_verification=0 "
-                "WHERE directory IN (%1)").arg(
-                        SqlStringFormatter::formatList(m_database, directories)));
-    if (!query.exec()) {
-        LOG_FAILED_QUERY(query)
-                << "Couldn't mark tracks in" << directories.size() << "directories as verified.";
-        DEBUG_ASSERT(!"Failed query");
-    }
-}
-
 void TrackDAO::markUnverifiedTracksAsDeleted() {
     // kLogger.debug()<< "markUnverifiedTracksAsDeleted" <<
     // QThread::currentThread() << m_database.connectionName();
@@ -2379,7 +2361,7 @@ bool TrackDAO::updatePlayCounterFromPlayedHistory(
                 m_database,
                 QStringLiteral(
                         "UPDATE library SET "
-                        "timesplayed=0,"
+                        "timesplayed=0"
                         "WHERE id NOT IN("
                         "SELECT PlaylistTracks.track_id "
                         "FROM PlaylistTracks "
@@ -2506,24 +2488,26 @@ QString TrackDAO::findLastTimeAddedToHistory(TrackId trackId) const {
     if (m_lastAddedToHistoryQuery.lastQuery().isEmpty()) {
         m_lastAddedToHistoryQuery = QSqlQuery(m_database);
         m_lastAddedToHistoryQuery.prepare(
-            "SELECT MAX(PlaylistTracks.pl_datetime_added) "
-            "FROM PlaylistTracks "
-            "JOIN Playlists ON PlaylistTracks.playlist_id = Playlists.id "
-            "WHERE PlaylistTracks.track_id = :id "
-            "AND Playlists.hidden = " + QString::number(PlaylistDAO::PLHT_SET_LOG)
-        );
+                "SELECT MAX(PlaylistTracks.pl_datetime_added) "
+                "FROM PlaylistTracks "
+                "JOIN Playlists ON PlaylistTracks.playlist_id = Playlists.id "
+                "WHERE PlaylistTracks.track_id = :id "
+                "AND Playlists.hidden = " +
+                QString::number(PlaylistDAO::PLHT_SET_LOG));
     }
 
     m_lastAddedToHistoryQuery.bindValue(":id", trackId.toVariant());
-    
+
     if (!m_lastAddedToHistoryQuery.exec()) {
-        LOG_FAILED_QUERY(m_lastAddedToHistoryQuery) << "Failed to find last time added to history for track" << trackId;
+        LOG_FAILED_QUERY(m_lastAddedToHistoryQuery)
+                << "Failed to find last time added to history for track"
+                << trackId;
         return QString();
     }
-    
+
     if (m_lastAddedToHistoryQuery.next()) {
         return m_lastAddedToHistoryQuery.value(0).toString();
     }
-    
+
     return QString();
 }
